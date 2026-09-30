@@ -16,14 +16,17 @@ interface ScheduleItem {
 interface RefereeItem {
   rowIdx?: number;
   date: string;
+  time: string;
+  sport: string;
   match: string;
-  mainReferee: string;
-  subReferee: string;
+  referee: string;
   location: string;
+  note?: string;
 }
 
 export default function LeagueDashboard() {
   const [activeTab, setActiveTab] = useState<'2' | '3' | 'referee'>('2');
+  const [refereeGrade, setRefereeGrade] = useState<'2' | '3'>('2'); // 심판 일정표 전용 학년 탭
   const [selectedGroup, setSelectedGroup] = useState<'A' | 'B'>('A');
   const [isEditMode, setIsEditMode] = useState(false);
   
@@ -45,13 +48,13 @@ export default function LeagueDashboard() {
     }
   };
 
-  // 백엔드 API 연동 (대진표 & 심판 일정표)
+  // 백엔드 API 연동
   useEffect(() => {
     setLoading(true);
     
     if (activeTab === 'referee') {
-      // 심판 일정표 데이터 불러오기
-      fetch(`/api/schedule?type=referee`)
+      // 심판 일정표 데이터 불러오기 (2학년/3학년 구분)
+      fetch(`/api/schedule?type=referee&grade=${refereeGrade}`)
         .then((res) => res.json())
         .then((resData) => {
           if (resData.success) {
@@ -78,7 +81,7 @@ export default function LeagueDashboard() {
           setLoading(false);
         });
     }
-  }, [activeTab, selectedGroup]);
+  }, [activeTab, selectedGroup, refereeGrade]);
 
   return (
     <div className="min-h-screen bg-gray-100 text-gray-800 p-4 md:p-8">
@@ -147,7 +150,7 @@ export default function LeagueDashboard() {
         </div>
 
         {/* 엑셀 업로드 패널 (편집 모드 활성화 시) */}
-        {isEditMode && (
+        {isEditMode && activeTab !== 'referee' && (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 shadow-sm">
             <div className="font-bold text-blue-900 mb-2 flex items-center gap-1 text-sm">
               📁 경기 일정 / 대진표 엑셀 업로드
@@ -167,49 +170,85 @@ export default function LeagueDashboard() {
 
         {/* 메인 콘텐츠 영역 */}
         {activeTab === 'referee' ? (
-          /* --- 심판 일정표 화면 --- */
-          <div className="bg-white rounded-xl shadow border overflow-hidden p-6">
-            <h2 className="text-xl font-bold mb-4 text-slate-800 flex items-center gap-2">
-              🏁 심판 배정 및 일정표
-            </h2>
-            {loading ? (
-              <div className="text-center py-12 text-gray-500 font-semibold">심판 일정을 불러오는 중입니다...</div>
-            ) : refereeData.length === 0 ? (
-              <div className="text-center py-12 text-gray-500 font-semibold">등록된 심판 일정 데이터가 없습니다.</div>
-            ) : (
-              <div className="overflow-x-auto">
+          /* --- 경기 심판 배정 일정표 (두 번째 사진 동일 스타일) --- */
+          <div className="bg-white rounded-xl shadow border overflow-hidden">
+            <div className="bg-slate-800 text-white p-4 flex justify-between items-center">
+              <span className="font-bold text-lg flex items-center gap-2">
+                ※ 경기 심판 배정 일정표
+              </span>
+              <div className="flex gap-1 bg-slate-700 p-1 rounded-lg">
+                <button
+                  onClick={() => setRefereeGrade('2')}
+                  className={`px-3 py-1 rounded text-sm font-bold transition ${refereeGrade === '2' ? 'bg-slate-500 text-white shadow' : 'text-slate-300 hover:text-white'}`}
+                >
+                  2학년 심판 일정
+                </button>
+                <button
+                  onClick={() => setRefereeGrade('3')}
+                  className={`px-3 py-1 rounded text-sm font-bold transition ${refereeGrade === '3' ? 'bg-slate-500 text-white shadow' : 'text-slate-300 hover:text-white'}`}
+                >
+                  3학년 심판 일정
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 overflow-x-auto">
+              {loading ? (
+                <div className="text-center py-12 text-gray-500 font-semibold">심판 일정을 불러오는 중입니다...</div>
+              ) : (
                 <table className="w-full text-center border-collapse text-sm">
                   <thead>
-                    <tr className="bg-slate-800 text-white font-bold">
-                      <th className="p-3 border">일자</th>
-                      <th className="p-3 border">경기</th>
-                      <th className="p-3 border">주심</th>
-                      <th className="p-3 border">부심/기록</th>
-                      <th className="p-3 border">장소</th>
-                      {isEditMode && <th className="p-3 border">관리</th>}
+                    <tr className="bg-slate-800 text-white font-bold border-b border-slate-700">
+                      <th className="p-3 border border-slate-700">일자</th>
+                      <th className="p-3 border border-slate-700">시간</th>
+                      <th className="p-3 border border-slate-700">종목</th>
+                      <th className="p-3 border border-slate-700">대진</th>
+                      <th className="p-3 border border-slate-700">심판</th>
+                      <th className="p-3 border border-slate-700">장소</th>
+                      <th className="p-3 border border-slate-700">비고</th>
+                      {isEditMode && <th className="p-3 border border-slate-700">관리</th>}
                     </tr>
                   </thead>
                   <tbody>
-                    {refereeData.map((item, idx) => (
-                      <tr key={idx} className="border-b hover:bg-gray-50 transition">
-                        <td className="p-3 border font-medium text-gray-600">{item.date}</td>
-                        <td className="p-3 border font-semibold">{item.match}</td>
-                        <td className="p-3 border text-blue-600 font-bold">{item.mainReferee}</td>
-                        <td className="p-3 border text-gray-600">{item.subReferee}</td>
-                        <td className="p-3 border">{item.location}</td>
-                        {isEditMode && (
-                          <td className="p-3 border">
-                            <button className="px-2 py-1 bg-white hover:bg-rose-50 border border-rose-500 text-rose-600 font-bold text-xs rounded">
-                              삭제
-                            </button>
-                          </td>
-                        )}
+                    {refereeData.length === 0 ? (
+                      <tr>
+                        <td colSpan={isEditMode ? 8 : 7} className="p-8 text-center text-gray-500">
+                          등록된 심판 배정 데이터가 없습니다.
+                        </td>
                       </tr>
-                    ))}
+                    ) : (
+                      refereeData.map((item, idx) => (
+                        <tr key={idx} className="border-b hover:bg-gray-50 transition">
+                          <td className="p-3 border font-bold text-gray-800">{item.date}</td>
+                          <td className="p-3 border text-gray-600 font-medium">{item.time}</td>
+                          <td className="p-3 border font-bold text-gray-700">{item.sport}</td>
+                          <td className="p-3 border font-bold text-gray-900">{item.match}</td>
+                          <td className="p-3 border">
+                            <span className="inline-block px-3 py-1 bg-emerald-700 text-white font-bold rounded-md text-xs shadow-sm">
+                              {item.referee}
+                            </span>
+                          </td>
+                          <td className="p-3 border text-gray-600 font-medium">{item.location}</td>
+                          <td className="p-3 border text-gray-500">{item.note || ''}</td>
+                          {isEditMode && (
+                            <td className="p-3 border">
+                              <div className="flex gap-1 justify-center">
+                                <button className="px-2 py-0.5 bg-white hover:bg-blue-50 border border-blue-500 text-blue-600 font-bold text-xs rounded">
+                                  수정
+                                </button>
+                                <button className="px-2 py-0.5 bg-white hover:bg-rose-50 border border-rose-500 text-rose-600 font-bold text-xs rounded">
+                                  삭제
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         ) : (
           /* --- 대진표 및 실시간 순위표 화면 --- */
